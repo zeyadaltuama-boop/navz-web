@@ -1,29 +1,14 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import {
-  Bell,
-  Car,
   CircleUser,
   Home,
   LineChart,
   Menu,
-  Package,
-  Package2,
-  Search,
-  ShoppingCart,
-  Users,
+  Settings,
   Wallet,
 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Logo from '@/components/logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -48,7 +32,7 @@ export default function DriverLayout({
   const navItems = [
     { href: '/driver', icon: <Home className="h-5 w-5" />, label: 'Dashboard' },
     { href: '#', icon: <Wallet className="h-5 w-5" />, label: 'Earnings' },
-    { href: '#', icon: <Users className="h-5 w-5" />, label: 'Profile' },
+    { href: '/driver/profile', icon: <CircleUser className="h-5 w-5" />, label: 'Profile' },
     { href: '#', icon: <LineChart className="h-5 w-5" />, label: 'Ride History' },
   ];
   
@@ -118,7 +102,12 @@ export default function DriverLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/driver/profile" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>Logout</DropdownMenuItem>

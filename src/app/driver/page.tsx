@@ -45,9 +45,9 @@ const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
 export default function DriverDashboard() {
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader title="Dashboard" description="Here's what's happening today." />
-        <AvailabilityToggle />
+        <AvailabilityToggle isSubscriptionActive={true} />
       </div>
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card>
@@ -103,7 +103,7 @@ export default function DriverDashboard() {
                 <TableHead>Passenger</TableHead>
                 <TableHead className="hidden md:table-cell">Pickup Location</TableHead>
                 <TableHead className="hidden md:table-cell">Distance</TableHead>
-                <TableHead className="text-right">Fare</TableHead>
+                <TableHead className="text-right">Your Fare</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -121,7 +121,10 @@ export default function DriverDashboard() {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{ride.pickup}</TableCell>
                    <TableCell className="hidden md:table-cell">{ride.distance}</TableCell>
-                  <TableCell className="text-right">€{ride.fare}</TableCell>
+                  <TableCell className="text-right">
+                    <div className='font-semibold'>€{ride.fare}</div>
+                    <div className='text-xs text-muted-foreground'>(Your price)</div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                         <Button variant="outline" size="sm" className="bg-green-500/10 text-green-700 border-green-500/30 hover:bg-green-500/20 hover:text-green-800">

@@ -1,22 +1,63 @@
-import { Car, MapPin, Star, Wallet } from "lucide-react";
+'use client';
+
+import { Car, MapPin, Star, Wallet, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import React from "react";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 
 const driverAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-2');
+const passengerAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-1');
 
-const rideOptions = [
-  { type: 'Standard', price: '€8.50', eta: '5 min', icon: <Car className="size-6" /> },
-  { type: 'Premium', price: '€15.00', eta: '8 min', icon: <Car className="size-6" /> },
-  { type: 'XL', price: '€12.75', eta: '7 min', icon: <Car className="size-6" /> },
+const availableDrivers = [
+  {
+    name: 'John D.',
+    avatarId: 'user-avatar-2',
+    vehicle: 'Toyota Prius',
+    rating: 4.9,
+    eta: '5 min',
+    price: '€8.50',
+    isFavorite: true,
+  },
+  {
+    name: 'Maria S.',
+    avatarId: 'user-avatar-3',
+    vehicle: 'Honda Civic',
+    rating: 4.8,
+    eta: '8 min',
+    price: '€7.90',
+    isFavorite: false,
+  },
+   {
+    name: 'Carlos F.',
+    avatarId: 'user-avatar-4',
+    vehicle: 'Tesla Model 3',
+    rating: 5.0,
+    eta: '6 min',
+    price: '€12.00',
+    isFavorite: false,
+  },
 ];
 
+const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
+
+
 export default function RideRequestPanel() {
+    const [step, setStep] = React.useState('locations'); // 'locations', 'drivers', 'requesting'
+    const [selectedDriver, setSelectedDriver] = React.useState<typeof availableDrivers[0] | null>(null);
+
+    const handleFindDrivers = (e: React.FormEvent) => {
+        e.preventDefault();
+        setStep('drivers');
+    }
+
   return (
     <Card className="w-full max-w-sm rounded-xl shadow-2xl">
       <Tabs defaultValue="book">
@@ -27,39 +68,70 @@ export default function RideRequestPanel() {
           </TabsList>
         </CardHeader>
         <TabsContent value="book">
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pickup">Pickup Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input id="pickup" placeholder="Enter pickup location" className="pl-9" defaultValue="123 Main St, Anytown" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dropoff">Dropoff Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input id="dropoff" placeholder="Enter dropoff location" className="pl-9" />
-              </div>
-            </div>
-            <Separator />
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">Choose a ride:</h3>
-              {rideOptions.map((option) => (
-                <div key={option.type} className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-4">
-                    {option.icon}
-                    <div>
-                      <p className="font-semibold">{option.type}</p>
-                      <p className="text-sm text-muted-foreground">{option.eta}</p>
+          {step === 'locations' && (
+             <form onSubmit={handleFindDrivers}>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="pickup">Pickup Location</Label>
+                    <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                        <Input id="pickup" placeholder="Enter pickup location" className="pl-9" defaultValue="123 Main St, Anytown" required />
                     </div>
-                  </div>
-                  <p className="font-semibold">{option.price}</p>
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="dropoff">Dropoff Location</Label>
+                    <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                        <Input id="dropoff" placeholder="Enter dropoff location" className="pl-9" required />
+                    </div>
+                    </div>
+                    <Button className="w-full" size="lg" type="submit">Find Drivers</Button>
+                </CardContent>
+            </form>
+          )}
+
+          {step === 'drivers' && (
+             <CardContent className="space-y-4">
+                <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-center">Choose a driver:</h3>
+                    <ScrollArea className="h-72">
+                        <div className="space-y-3 pr-4">
+                        {availableDrivers.map((driver) => (
+                            <div 
+                                key={driver.name} 
+                                className={cn("flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors cursor-pointer", selectedDriver?.name === driver.name && "bg-accent/80 border-primary")}
+                                onClick={() => setSelectedDriver(driver)}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="size-10">
+                                        <AvatarImage src={getAvatar(driver.avatarId)?.imageUrl} alt={driver.name} />
+                                        <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{driver.name}</p>
+                                        <p className="text-sm text-muted-foreground">{driver.vehicle}</p>
+                                        <div className="flex items-center gap-1 text-xs">
+                                            <Star className="size-3 text-yellow-400 fill-yellow-400"/>
+                                            <span>{driver.rating}</span>
+                                            <span className="text-muted-foreground">({driver.eta})</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                    <p className="font-semibold text-lg">{driver.price}</p>
+                                    {driver.isFavorite && <Heart className="size-4 text-red-500 fill-red-500"/>}
+                                </div>
+                            </div>
+                        ))}
+                        </div>
+                    </ScrollArea>
                 </div>
-              ))}
-            </div>
-            <Button className="w-full" size="lg">Request Ride</Button>
-          </CardContent>
+                 <Button className="w-full" size="lg" disabled={!selectedDriver}>
+                    Request {selectedDriver ? selectedDriver.name.split(' ')[0] : 'This Driver'}
+                </Button>
+                <Button variant="link" className="w-full" onClick={() => setStep('locations')}>Back</Button>
+             </CardContent>
+          )}
         </TabsContent>
         <TabsContent value="status">
             <CardContent className="space-y-4">
