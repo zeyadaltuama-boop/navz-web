@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Save } from 'lucide-react';
+import { CreditCard, Save, Settings } from 'lucide-react';
 
 const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar-2');
 
@@ -84,15 +85,17 @@ export default function DriverProfilePage() {
             <CardContent className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border bg-background p-4">
                     <div>
-                        <p className="font-medium">Current Status</p>
+                        <p className="font-medium">Current Plan: Pro</p>
                         <p className="text-sm text-muted-foreground">Your subscription is active until December 31, 2024.</p>
                     </div>
                     <Badge variant="default" className="bg-green-500/80">Active</Badge>
                 </div>
             </CardContent>
             <CardFooter className="justify-end">
-              <Button>
-                <CreditCard className="mr-2" /> Renew Subscription
+              <Button asChild>
+                <Link href="/driver/subscription">
+                  <Settings className="mr-2" /> Manage Subscription
+                </Link>
               </Button>
             </CardFooter>
           </Card>

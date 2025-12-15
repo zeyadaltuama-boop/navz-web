@@ -1,6 +1,10 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   CircleUser,
+  CreditCard,
   Home,
   LineChart,
   Menu,
@@ -21,6 +25,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Logo from '@/components/logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
 
 const userAvatar = PlaceHolderImages.find((img) => img.id === 'user-avatar-2');
 
@@ -29,9 +34,11 @@ export default function DriverLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const navItems = [
     { href: '/driver', icon: <Home className="h-5 w-5" />, label: 'Dashboard' },
-    { href: '#', icon: <Wallet className="h-5 w-5" />, label: 'Earnings' },
+    { href: '/driver/earnings', icon: <Wallet className="h-5 w-5" />, label: 'Earnings' },
+    { href: '/driver/subscription', icon: <CreditCard className="h-5 w-5" />, label: 'Subscription' },
     { href: '/driver/profile', icon: <CircleUser className="h-5 w-5" />, label: 'Profile' },
     { href: '#', icon: <LineChart className="h-5 w-5" />, label: 'Ride History' },
   ];
@@ -49,7 +56,7 @@ export default function DriverLayout({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
+                  className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary", { "bg-muted text-primary": pathname === item.href })}
                 >
                   {item.icon}
                   {item.label}
@@ -79,7 +86,7 @@ export default function DriverLayout({
                     <Link
                       key={item.label}
                       href={item.href}
-                      className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                      className={cn("mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground", { "bg-muted text-foreground": pathname === item.href })}
                     >
                       {item.icon}
                       {item.label}
