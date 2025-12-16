@@ -1,3 +1,5 @@
+'use client';
+
 import { ArrowUpRight, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +25,9 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Image from 'next/image';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import MapView from '@/components/passenger/map-view';
+import { useState } from 'react';
 
 const rides = [
     {
@@ -42,130 +47,145 @@ const rides = [
 ];
 
 const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
-const driverViewImage = PlaceHolderImages.find(img => img.id === 'driver-view-map');
-
 
 export default function DriverDashboard() {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [pickupPlace, setPickupPlace] = useState<google.maps.places.PlaceResult | null>(null);
+  const [dropoffPlace, setDropoffPlace] = useState<google.maps.places.PlaceResult | null>(null);
+
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
+    return (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+            <div className="rounded-lg border bg-card p-6 text-center shadow-lg">
+                <h2 className="text-2xl font-bold">Google Maps API Key Missing</h2>
+                <p className="mt-2 text-muted-foreground">
+                    Please add your Google Maps API key to the <code>.env</code> file to see the map.
+                </p>
+                <pre className="mt-4 rounded-md bg-muted p-2 text-sm">
+                    <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="YOUR_API_KEY_HERE"</code>
+                </pre>
+            </div>
+        </div>
+    )
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-6">
-        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <PageHeader title="Dashboard" description="Here's what's happening today." />
-            <AvailabilityToggle isSubscriptionActive={true} />
+    <APIProvider apiKey={apiKey}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <PageHeader title="Dashboard" description="Here's what's happening today." />
+              <AvailabilityToggle isSubscriptionActive={true} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                  <span className="text-sm text-muted-foreground">€</span>
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">€4,291.80</div>
+                  <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+              </CardContent>
+              </Card>
+              <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rides Completed</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">128</div>
+                  <p className="text-xs text-muted-foreground">+12 since yesterday</p>
+              </CardContent>
+              </Card>
+              <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Hours Online</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">32.5</div>
+                  <p className="text-xs text-muted-foreground">+5 hours from last week</p>
+              </CardContent>
+              </Card>
+              <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rating</CardTitle>
+                  <span className="text-sm text-muted-foreground">⭐</span>
+              </CardHeader>
+              <CardContent>
+                  <div className="text-2xl font-bold">4.92</div>
+                  <p className="text-xs text-muted-foreground">Top 5% of drivers</p>
+              </CardContent>
+              </Card>
+          </div>
+          <Card>
+              <CardHeader>
+              <CardTitle>Incoming Ride Requests</CardTitle>
+              <CardDescription>Accept or decline new ride opportunities.</CardDescription>
+              </CardHeader>
+              <CardContent>
+              <Table>
+                  <TableHeader>
+                  <TableRow>
+                      <TableHead>Passenger</TableHead>
+                      <TableHead className="hidden md:table-cell">Pickup Location</TableHead>
+                      <TableHead className="hidden md:table-cell">Distance</TableHead>
+                      <TableHead className="text-right">Your Fare</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                  {rides.map(ride => (
+                      <TableRow key={ride.passenger}>
+                      <TableCell>
+                          <div className="flex items-center gap-3">
+                              <Avatar className="hidden h-9 w-9 sm:flex">
+                              <AvatarImage src={getAvatar(ride.avatarId)?.imageUrl} alt="Avatar" />
+                              <AvatarFallback>{ride.passenger.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="font-medium">{ride.passenger}</div>
+                          </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{ride.pickup}</TableCell>
+                      <TableCell className="hidden md:table-cell">{ride.distance}</TableCell>
+                      <TableCell className="text-right">
+                          <div className='font-semibold'>€{ride.fare}</div>
+                          <div className='text-xs text-muted-foreground'>(Your price)</div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                              <Button variant="outline" size="sm" className="bg-green-500/10 text-green-700 border-green-500/30 hover:bg-green-500/20 hover:text-green-800">
+                                  <CheckCircle className="mr-2 h-4 w-4"/> Accept
+                              </Button>
+                              <Button variant="outline" size="sm" className="bg-red-500/10 text-red-700 border-red-500/30 hover:bg-red-500/20 hover:text-red-800">
+                                  <XCircle className="mr-2 h-4 w-4"/> Decline
+                              </Button>
+                          </div>
+                      </TableCell>
+                      </TableRow>
+                  ))}
+                  </TableBody>
+              </Table>
+              </CardContent>
+          </Card>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <span className="text-sm text-muted-foreground">€</span>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">€4,291.80</div>
-                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-            </CardContent>
-            </Card>
-            <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rides Completed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">128</div>
-                <p className="text-xs text-muted-foreground">+12 since yesterday</p>
-            </CardContent>
-            </Card>
-            <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Hours Online</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">32.5</div>
-                <p className="text-xs text-muted-foreground">+5 hours from last week</p>
-            </CardContent>
-            </Card>
-            <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rating</CardTitle>
-                <span className="text-sm text-muted-foreground">⭐</span>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">4.92</div>
-                <p className="text-xs text-muted-foreground">Top 5% of drivers</p>
-            </CardContent>
-            </Card>
-        </div>
-        <Card>
+        <div className="hidden lg:block relative h-[calc(100vh-8rem)]">
+          <Card className="h-full">
             <CardHeader>
-            <CardTitle>Incoming Ride Requests</CardTitle>
-            <CardDescription>Accept or decline new ride opportunities.</CardDescription>
+              <CardTitle>Driver's Map View</CardTitle>
+              <CardDescription>A driver would see an interactive map here showing their location and incoming ride requests.</CardDescription>
             </CardHeader>
-            <CardContent>
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Passenger</TableHead>
-                    <TableHead className="hidden md:table-cell">Pickup Location</TableHead>
-                    <TableHead className="hidden md:table-cell">Distance</TableHead>
-                    <TableHead className="text-right">Your Fare</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {rides.map(ride => (
-                    <TableRow key={ride.passenger}>
-                    <TableCell>
-                        <div className="flex items-center gap-3">
-                            <Avatar className="hidden h-9 w-9 sm:flex">
-                            <AvatarImage src={getAvatar(ride.avatarId)?.imageUrl} alt="Avatar" />
-                            <AvatarFallback>{ride.passenger.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="font-medium">{ride.passenger}</div>
-                        </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{ride.pickup}</TableCell>
-                    <TableCell className="hidden md:table-cell">{ride.distance}</TableCell>
-                    <TableCell className="text-right">
-                        <div className='font-semibold'>€{ride.fare}</div>
-                        <div className='text-xs text-muted-foreground'>(Your price)</div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" className="bg-green-500/10 text-green-700 border-green-500/30 hover:bg-green-500/20 hover:text-green-800">
-                                <CheckCircle className="mr-2 h-4 w-4"/> Accept
-                            </Button>
-                            <Button variant="outline" size="sm" className="bg-red-500/10 text-red-700 border-red-500/30 hover:bg-red-500/20 hover:text-red-800">
-                                <XCircle className="mr-2 h-4 w-4"/> Decline
-                            </Button>
-                        </div>
-                    </TableCell>
-                    </TableRow>
-                ))}
-                </TableBody>
-            </Table>
-            </CardContent>
-        </Card>
-      </div>
-      <div className="hidden lg:block">
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle>Driver's Map View</CardTitle>
-            <CardDescription>A driver would see an interactive map here showing their location and incoming ride requests.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {driverViewImage && (
-              <Image 
-                src={driverViewImage.imageUrl}
-                alt={driverViewImage.description}
-                width={1200}
-                height={1200}
-                className="rounded-lg object-cover"
-                data-ai-hint={driverViewImage.imageHint}
+            <CardContent className="h-[calc(100%-100px)]">
+               <MapView 
+                  pickupPlace={pickupPlace} 
+                  dropoffPlace={dropoffPlace} 
+                  onRouteInfo={() => {}}
               />
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </APIProvider>
   );
 }
