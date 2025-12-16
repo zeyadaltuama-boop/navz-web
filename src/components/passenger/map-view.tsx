@@ -1,21 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Map, useMap, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { DirectionsRenderer } from './directions-renderer';
+import type { RouteInfo } from '@/app/passenger/page';
 
 type MapViewProps = {
     pickupPlace: google.maps.places.PlaceResult | null;
     dropoffPlace: google.maps.places.PlaceResult | null;
+    onRouteInfo: (info: RouteInfo | null) => void;
 }
 
-export default function MapView({ pickupPlace, dropoffPlace }: MapViewProps) {
+export default function MapView({ pickupPlace, dropoffPlace, onRouteInfo }: MapViewProps) {
   const map = useMap();
 
   useEffect(() => {
     if (!map || !pickupPlace?.geometry?.location) return;
     
-    if (!dropoffPlace?.geometry?.location) {
+    if (dropoffPlace?.geometry?.location && pickupPlace.geometry?.location) {
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(pickupPlace.geometry.location);
+        bounds.extend(dropoffPlace.geometry.location);
+        map.fitBounds(bounds, 100);
+    } else {
         map.setCenter(pickupPlace.geometry.location);
         map.setZoom(15);
     }
@@ -39,6 +46,7 @@ export default function MapView({ pickupPlace, dropoffPlace }: MapViewProps) {
           <DirectionsRenderer
               originId={pickupPlace.place_id}
               destinationId={dropoffPlace.place_id}
+              onRouteInfo={onRouteInfo}
           />
       )}
     </>

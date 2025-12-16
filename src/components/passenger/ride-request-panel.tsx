@@ -1,8 +1,8 @@
 'use client';
 
-import { Car, MapPin, Star, Wallet, Heart } from "lucide-react";
+import { Car, MapPin, Star, Wallet, Heart, Clock, Milestone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,9 +12,9 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
 import { PlaceAutocompleteInput } from "./place-autocomplete-input";
+import type { RouteInfo } from "@/app/passenger/page";
 
 const driverAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-2');
-const passengerAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-1');
 
 const availableDrivers = [
   {
@@ -51,9 +51,20 @@ const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
 type RideRequestPanelProps = {
     onPickupSelect: (place: google.maps.places.PlaceResult | null) => void;
     onDropoffSelect: (place: google.maps.places.PlaceResult | null) => void;
+    routeInfo: RouteInfo | null;
 }
 
-export default function RideRequestPanel({ onPickupSelect, onDropoffSelect }: RideRequestPanelProps) {
+// Simple fare calculation for demonstration purposes
+const calculateFare = (routeInfo: RouteInfo | null) => {
+    if (!routeInfo) return 'N/A';
+    const distanceInKm = parseFloat(routeInfo.distance.replace(/[^0-9.]/g, ''));
+    const baseFare = 2.5;
+    const perKmRate = 1.2;
+    const fare = baseFare + distanceInKm * perKmRate;
+    return `~€${fare.toFixed(2)}`;
+}
+
+export default function RideRequestPanel({ onPickupSelect, onDropoffSelect, routeInfo }: RideRequestPanelProps) {
     const [step, setStep] = React.useState('locations'); // 'locations', 'drivers', 'requesting'
     const [selectedDriver, setSelectedDriver] = React.useState<typeof availableDrivers[0] | null>(null);
 
@@ -83,52 +94,87 @@ export default function RideRequestPanel({ onPickupSelect, onDropoffSelect }: Ri
                       <Label htmlFor="dropoff">Dropoff Location</Label>
                       <PlaceAutocompleteInput id="dropoff" placeholder="Enter dropoff location" onPlaceSelect={onDropoffSelect} />
                     </div>
-                    <Button className="w-full" size="lg" type="submit">Find Drivers</Button>
+
+                     {routeInfo && (
+                        <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
+                            <h4 className="text-sm font-medium">Trip Estimate</h4>
+                            <div className="flex justify-around text-center">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="size-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="font-bold">{routeInfo.duration}</p>
+                                        <p className="text-xs text-muted-foreground">Time</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Milestone className="size-4 text-muted-foreground"/>
+                                    <div>
+                                        <p className="font-bold">{routeInfo.distance}</p>
+                                        <p className="text-xs text-muted-foreground">Distance</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Wallet className="size-4 text-muted-foreground"/>
+                                    <div>
+                                        <p className="font-bold">{calculateFare(routeInfo)}</p>
+                                        <p className="text-xs text-muted-foreground">Avg. Fare</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
+                <CardFooter>
+                    <Button className="w-full" size="lg" type="submit" disabled={!routeInfo}>Find Drivers</Button>
+                </CardFooter>
             </form>
           )}
 
           {step === 'drivers' && (
-             <CardContent className="space-y-4">
-                <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-center">Choose a driver:</h3>
-                    <ScrollArea className="h-72">
-                        <div className="space-y-3 pr-4">
-                        {availableDrivers.map((driver) => (
-                            <div 
-                                key={driver.name} 
-                                className={cn("flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors cursor-pointer", selectedDriver?.name === driver.name && "bg-accent/80 border-primary")}
-                                onClick={() => setSelectedDriver(driver)}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="size-10">
-                                        <AvatarImage src={getAvatar(driver.avatarId)?.imageUrl} alt={driver.name} />
-                                        <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold">{driver.name}</p>
-                                        <p className="text-sm text-muted-foreground">{driver.vehicle}</p>
-                                        <div className="flex items-center gap-1 text-xs">
-                                            <Star className="size-3 text-yellow-400 fill-yellow-400"/>
-                                            <span>{driver.rating}</span>
-                                            <span className="text-muted-foreground">({driver.eta})</span>
+             <>
+                <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium text-center">Choose a driver:</h3>
+                        <ScrollArea className="h-72">
+                            <div className="space-y-3 pr-4">
+                            {availableDrivers.map((driver) => (
+                                <div 
+                                    key={driver.name} 
+                                    className={cn("flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors cursor-pointer", selectedDriver?.name === driver.name && "bg-accent/80 border-primary")}
+                                    onClick={() => setSelectedDriver(driver)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="size-10">
+                                            <AvatarImage src={getAvatar(driver.avatarId)?.imageUrl} alt={driver.name} />
+                                            <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold">{driver.name}</p>
+                                            <p className="text-sm text-muted-foreground">{driver.vehicle}</p>
+                                            <div className="flex items-center gap-1 text-xs">
+                                                <Star className="size-3 text-yellow-400 fill-yellow-400"/>
+                                                <span>{driver.rating}</span>
+                                                <span className="text-muted-foreground">({driver.eta})</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <p className="font-semibold text-lg">{driver.price}</p>
+                                        {driver.isFavorite && <Heart className="size-4 text-red-500 fill-red-500"/>}
+                                    </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-1">
-                                    <p className="font-semibold text-lg">{driver.price}</p>
-                                    {driver.isFavorite && <Heart className="size-4 text-red-500 fill-red-500"/>}
-                                </div>
+                            ))}
                             </div>
-                        ))}
-                        </div>
-                    </ScrollArea>
-                </div>
-                 <Button className="w-full" size="lg" disabled={!selectedDriver}>
-                    Request {selectedDriver ? selectedDriver.name.split(' ')[0] : 'This Driver'}
-                </Button>
-                <Button variant="link" className="w-full" onClick={() => setStep('locations')}>Back</Button>
-             </CardContent>
+                        </ScrollArea>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex-col gap-2">
+                    <Button className="w-full" size="lg" disabled={!selectedDriver}>
+                        Request {selectedDriver ? selectedDriver.name.split(' ')[0] : 'This Driver'}
+                    </Button>
+                    <Button variant="link" className="w-full" onClick={() => setStep('locations')}>Back</Button>
+                </CardFooter>
+             </>
           )}
         </TabsContent>
         <TabsContent value="status">
