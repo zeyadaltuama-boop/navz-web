@@ -143,7 +143,7 @@ export default function DriverDashboard() {
                 ))}
                 </TableBody>
             </Table>
-        </Card>
+            </CardContent>
         </Card>
       </div>
       <div className="hidden lg:block">
