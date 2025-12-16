@@ -71,13 +71,24 @@ export default function DriverDashboard() {
 
   return (
     <APIProvider apiKey={apiKey}>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <PageHeader title="Dashboard" description="Here's what's happening today." />
+            <AvailabilityToggle isSubscriptionActive={true} />
+        </div>
+         <div className="h-96 w-full">
+            <Card className="h-full">
+                <CardContent className="h-full p-0 rounded-lg overflow-hidden">
+                    <MapView 
+                        pickupPlace={pickupPlace} 
+                        dropoffPlace={dropoffPlace} 
+                        onRouteInfo={() => {}}
+                    />
+                </CardContent>
+            </Card>
+        </div>
         <div className="space-y-6">
-          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <PageHeader title="Dashboard" description="Here's what's happening today." />
-              <AvailabilityToggle isSubscriptionActive={true} />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -168,21 +179,6 @@ export default function DriverDashboard() {
                   </TableBody>
               </Table>
               </CardContent>
-          </Card>
-        </div>
-        <div className="hidden lg:block relative h-[calc(100vh-8rem)]">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Driver's Map View</CardTitle>
-              <CardDescription>A driver would see an interactive map here showing their location and incoming ride requests.</CardDescription>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-100px)]">
-               <MapView 
-                  pickupPlace={pickupPlace} 
-                  dropoffPlace={dropoffPlace} 
-                  onRouteInfo={() => {}}
-              />
-            </CardContent>
           </Card>
         </div>
       </div>
