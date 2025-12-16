@@ -1,3 +1,5 @@
+'use client';
+
 import { CircleUser, Truck, Users, Wallet } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import {
