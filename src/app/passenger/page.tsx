@@ -27,8 +27,8 @@ export default function PassengerPage() {
     <APIProvider apiKey={apiKey}>
       <div className="relative h-[calc(100vh-3.5rem)] w-full">
         <MapView />
-        <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-        <div className="absolute top-0 left-0 z-10 h-full w-full p-4 md:p-6">
+        <div className="absolute inset-0 bg-gradient-to-t from-background/50 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 z-10 p-4 md:p-6">
           <RideRequestPanel />
         </div>
       </div>
