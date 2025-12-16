@@ -7,7 +7,7 @@ import MapView from '@/components/passenger/map-view';
 export default function PassengerPage() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
     return (
         <div className="flex h-screen w-full items-center justify-center bg-background">
             <div className="rounded-lg border bg-card p-6 text-center shadow-lg">
@@ -28,7 +28,7 @@ export default function PassengerPage() {
       <div className="relative h-[calc(100vh-3.5rem)] w-full">
         <MapView />
         <div className="absolute inset-0 bg-black/10 pointer-events-none" />
-        <div className="relative z-10 h-full w-full p-4 md:p-6">
+        <div className="absolute top-0 left-0 z-10 h-full w-full p-4 md:p-6">
           <RideRequestPanel />
         </div>
       </div>
