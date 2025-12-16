@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { CheckCircle, FileUp, Loader, ShieldAlert, ShieldCheck, XCircle } from 'lucide-react';
 
 import { checkComplianceAction } from '@/app/actions';
@@ -35,7 +36,7 @@ function SubmitButton() {
 }
 
 export default function ComplianceForm() {
-  const [state, formAction] = useFormState(checkComplianceAction, initialState);
+  const [state, formAction] = useActionState(checkComplianceAction, initialState);
 
   return (
     <form action={formAction}>
