@@ -40,7 +40,7 @@ export default function DriverLayout({
     { href: '/driver/earnings', icon: <Wallet className="h-5 w-5" />, label: 'Earnings' },
     { href: '/driver/subscription', icon: <CreditCard className="h-5 w-5" />, label: 'Subscription' },
     { href: '/driver/profile', icon: <CircleUser className="h-5 w-5" />, label: 'Profile' },
-    { href: '#', icon: <LineChart className="h-5 w-5" />, label: 'Ride History' },
+    { href: '/driver/ride-history', icon: <LineChart className="h-5 w-5" />, label: 'Ride History' },
   ];
   
   return (
