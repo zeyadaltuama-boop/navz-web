@@ -56,7 +56,7 @@ export default function LandingPage() {
               Your Next Ride, Reimagined
             </h1>
             <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-              RideShift offers a seamless, modern, and reliable ride-hailing experience. Whether you're commuting or driving, we've got you covered.
+              RydNow offers a seamless, modern, and reliable ride-hailing experience. Whether you're commuting or driving, we've got you covered.
             </p>
             <div className="mt-8">
               <Button asChild size="lg">
@@ -95,7 +95,7 @@ export default function LandingPage() {
       </main>
       <footer className="border-t">
         <div className="container flex h-16 items-center justify-between">
-          <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} RideShift. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} RydNow. All rights reserved.</p>
         </div>
       </footer>
     </div>
