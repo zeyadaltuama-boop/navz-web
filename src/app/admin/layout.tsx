@@ -39,11 +39,11 @@ export default function AdminLayout({
     const pathname = usePathname();
     const navItems = [
         { href: '/admin', icon: <Home className="h-5 w-5" />, label: 'Dashboard' },
-        { href: '#', icon: <Users className="h-5 w-5" />, label: 'Drivers' },
-        { href: '#', icon: <CircleUser className="h-5 w-5" />, label: 'Passengers' },
-        { href: '#', icon: <Truck className="h-5 w-5" />, label: 'Rides' },
+        { href: '/admin/drivers', icon: <Users className="h-5 w-5" />, label: 'Drivers' },
+        { href: '/admin/passengers', icon: <CircleUser className="h-5 w-5" />, label: 'Passengers' },
+        { href: '/admin/rides', icon: <Truck className="h-5 w-5" />, label: 'Rides' },
         { href: '/admin/compliance', icon: <ShieldCheck className="h-5 w-5" />, label: 'Compliance' },
-        { href: '#', icon: <LineChart className="h-5 w-5" />, label: 'Analytics' },
+        { href: '/admin/analytics', icon: <LineChart className="h-5 w-5" />, label: 'Analytics' },
     ];
 
   return (
