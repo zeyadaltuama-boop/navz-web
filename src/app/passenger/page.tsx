@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import RideRequestPanel from '@/components/passenger/ride-request-panel';
 import MapView from '@/components/passenger/map-view';
 
 export default function PassengerPage() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const [pickupPlace, setPickupPlace] = useState<google.maps.places.PlaceResult | null>(null);
+  const [dropoffPlace, setDropoffPlace] = useState<google.maps.places.PlaceResult | null>(null);
+
 
   if (!apiKey || apiKey === 'YOUR_API_KEY_HERE') {
     return (
@@ -26,11 +30,11 @@ export default function PassengerPage() {
   return (
     <APIProvider apiKey={apiKey}>
       <div className="relative h-[calc(100vh-3.5rem)] w-full">
-        <MapView />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/50 via-transparent to-transparent pointer-events-none" />
+        <MapView pickupPlace={pickupPlace} dropoffPlace={dropoffPlace} />
         <div className="absolute top-0 left-0 z-10 p-4 md:p-6">
-          <RideRequestPanel />
+          <RideRequestPanel onPickupSelect={setPickupPlace} onDropoffSelect={setDropoffPlace} />
         </div>
+        <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-background to-transparent pointer-events-none" />
       </div>
     </APIProvider>
   );

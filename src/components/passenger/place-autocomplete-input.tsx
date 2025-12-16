@@ -9,10 +9,9 @@ type PlaceAutocompleteProps = {
   id: string;
   placeholder: string;
   onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void;
-  defaultValue?: string;
 };
 
-export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect, defaultValue }: PlaceAutocompleteProps) {
+export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect }: PlaceAutocompleteProps) {
   const places = useMapsLibrary('places');
   const inputRef = useRef<HTMLInputElement>(null);
   const autocomplete = useRef<google.maps.places.Autocomplete>();
@@ -38,7 +37,6 @@ export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect, default
         ref={inputRef}
         className="pl-9"
         placeholder={placeholder}
-        defaultValue={defaultValue}
         required
       />
     </div>

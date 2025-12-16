@@ -48,8 +48,12 @@ const availableDrivers = [
 
 const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
 
+type RideRequestPanelProps = {
+    onPickupSelect: (place: google.maps.places.PlaceResult | null) => void;
+    onDropoffSelect: (place: google.maps.places.PlaceResult | null) => void;
+}
 
-export default function RideRequestPanel() {
+export default function RideRequestPanel({ onPickupSelect, onDropoffSelect }: RideRequestPanelProps) {
     const [step, setStep] = React.useState('locations'); // 'locations', 'drivers', 'requesting'
     const [selectedDriver, setSelectedDriver] = React.useState<typeof availableDrivers[0] | null>(null);
 
@@ -73,11 +77,11 @@ export default function RideRequestPanel() {
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="pickup">Pickup Location</Label>
-                      <PlaceAutocompleteInput id="pickup" placeholder="Enter pickup location" onPlaceSelect={console.log} defaultValue="123 Main St, Anytown" />
+                      <PlaceAutocompleteInput id="pickup" placeholder="Enter pickup location" onPlaceSelect={onPickupSelect} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="dropoff">Dropoff Location</Label>
-                      <PlaceAutocompleteInput id="dropoff" placeholder="Enter dropoff location" onPlaceSelect={console.log} />
+                      <PlaceAutocompleteInput id="dropoff" placeholder="Enter dropoff location" onPlaceSelect={onDropoffSelect} />
                     </div>
                     <Button className="w-full" size="lg" type="submit">Find Drivers</Button>
                 </CardContent>
