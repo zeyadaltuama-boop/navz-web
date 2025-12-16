@@ -1,0 +1,46 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
+import { Input } from '../ui/input';
+import { MapPin } from 'lucide-react';
+
+type PlaceAutocompleteProps = {
+  id: string;
+  placeholder: string;
+  onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void;
+  defaultValue?: string;
+};
+
+export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect, defaultValue }: PlaceAutocompleteProps) {
+  const places = useMapsLibrary('places');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocomplete = useRef<google.maps.places.Autocomplete>();
+
+  useEffect(() => {
+    if (!places || !inputRef.current) return;
+
+    autocomplete.current = new places.Autocomplete(inputRef.current, {
+        fields: ['place_id', 'name', 'formatted_address', 'geometry'],
+    });
+
+    autocomplete.current.addListener('place_changed', () => {
+      onPlaceSelect(autocomplete.current?.getPlace() ?? null);
+    });
+
+  }, [places, onPlaceSelect]);
+
+  return (
+    <div className="relative">
+      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+      <Input
+        id={id}
+        ref={inputRef}
+        className="pl-9"
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        required
+      />
+    </div>
+  );
+}

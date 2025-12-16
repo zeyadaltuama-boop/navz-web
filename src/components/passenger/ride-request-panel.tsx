@@ -3,7 +3,6 @@
 import { Car, MapPin, Star, Wallet, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +11,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import React from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
+import { PlaceAutocompleteInput } from "./place-autocomplete-input";
 
 const driverAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-2');
 const passengerAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-1');
@@ -72,18 +72,12 @@ export default function RideRequestPanel() {
              <form onSubmit={handleFindDrivers}>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                    <Label htmlFor="pickup">Pickup Location</Label>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input id="pickup" placeholder="Enter pickup location" className="pl-9" defaultValue="123 Main St, Anytown" required />
-                    </div>
+                      <Label htmlFor="pickup">Pickup Location</Label>
+                      <PlaceAutocompleteInput id="pickup" placeholder="Enter pickup location" onPlaceSelect={console.log} defaultValue="123 Main St, Anytown" />
                     </div>
                     <div className="space-y-2">
-                    <Label htmlFor="dropoff">Dropoff Location</Label>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                        <Input id="dropoff" placeholder="Enter dropoff location" className="pl-9" required />
-                    </div>
+                      <Label htmlFor="dropoff">Dropoff Location</Label>
+                      <PlaceAutocompleteInput id="dropoff" placeholder="Enter dropoff location" onPlaceSelect={console.log} />
                     </div>
                     <Button className="w-full" size="lg" type="submit">Find Drivers</Button>
                 </CardContent>
