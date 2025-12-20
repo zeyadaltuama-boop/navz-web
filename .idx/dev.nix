@@ -7,9 +7,21 @@
   packages = [
     pkgs.nodejs_20
     pkgs.zulu
+
+    # ---- Flutter + common prerequisites (Nix-friendly) ----
+    pkgs.flutter
+    pkgs.git
+    pkgs.curl
+    pkgs.unzip
+    pkgs.zip
+    pkgs.xz
+    pkgs.which
+    pkgs.gnumake
   ];
+
   # Sets environment variables in the workspace
   env = {};
+
   # This adds a file watcher to startup the firebase emulators. The emulators will only start if
   # a firebase.json file is written into the user's directory
   services.firebase.emulators = {
@@ -18,6 +30,7 @@
     projectId = "demo-app";
     services = ["auth" "firestore"];
   };
+
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
