@@ -1,4 +1,4 @@
-# rydnow
+# NAVZ
 
 A new Flutter project.
 

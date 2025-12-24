@@ -1,221 +1,379 @@
 'use client';
 
-import { Car, MapPin, Star, Wallet, Heart, Clock, Milestone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import React from "react";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "../ui/scroll-area";
-import { PlaceAutocompleteInput } from "./place-autocomplete-input";
-import type { RouteInfo } from "@/app/passenger/page";
+import React, { useEffect } from 'react';
+import {
+  addDoc,
+  collection,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import {
+  User,
+  Users,
+  Package,
+  ArrowUpDown,
+  Plus,
+  X,
+  Clock,
+  Milestone,
+  Wallet,
+  Sparkles, // 🔵 NAVZ AI
+} from 'lucide-react';
 
-const driverAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar-2');
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { PlaceAutocompleteInput } from '@/components/passenger/place-autocomplete-input';
+import type { RouteInfo } from '@/app/passenger/page';
+import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase/client';
 
-const availableDrivers = [
-  {
-    name: 'John D.',
-    avatarId: 'user-avatar-2',
-    vehicle: 'Toyota Prius',
-    rating: 4.9,
-    eta: '5 min',
-    price: '€8.50',
-    isFavorite: true,
-  },
-  {
-    name: 'Maria S.',
-    avatarId: 'user-avatar-3',
-    vehicle: 'Honda Civic',
-    rating: 4.8,
-    eta: '8 min',
-    price: '€7.90',
-    isFavorite: false,
-  },
-   {
-    name: 'Carlos F.',
-    avatarId: 'user-avatar-4',
-    vehicle: 'Tesla Model 3',
-    rating: 5.0,
-    eta: '6 min',
-    price: '€12.00',
-    isFavorite: false,
-  },
-];
+async function resolvePlace(
+  text: string
+): Promise<google.maps.places.PlaceResult | null> {
+  return new Promise((resolve) => {
+    if (!window.google?.maps?.places) return resolve(null);
 
-const getAvatar = (id: string) => PlaceHolderImages.find(img => img.id === id);
+    const service = new google.maps.places.PlacesService(
+      document.createElement("div")
+    );
 
-type RideRequestPanelProps = {
-    onPickupSelect: (place: google.maps.places.PlaceResult | null) => void;
-    onDropoffSelect: (place: google.maps.places.PlaceResult | null) => void;
-    routeInfo: RouteInfo | null;
+    service.textSearch({ query: text }, (results, status) => {
+      if (
+        status === google.maps.places.PlacesServiceStatus.OK &&
+        results?.[0]
+      ) {
+        resolve(results[0]);
+      } else {
+        resolve(null);
+      }
+    });
+  });
 }
 
-// Simple fare calculation for demonstration purposes
-const calculateFare = (routeInfo: RouteInfo | null) => {
-    if (!routeInfo) return 'N/A';
-    const distanceInKm = parseFloat(routeInfo.distance.replace(/[^0-9.]/g, ''));
-    const baseFare = 2.5;
-    const perKmRate = 1.2;
-    const fare = baseFare + distanceInKm * perKmRate;
-    return `~€${fare.toFixed(2)}`;
+type ServiceType = 'ride' | 'ride_for_others' | 'item_pickup';
+
+type Stop = {
+  id: string;
+  place: google.maps.places.PlaceResult | null;
+};
+
+type Props = {
+  passengerId: string;
+  pickupPlace: google.maps.places.PlaceResult | null;
+  dropoffPlace: google.maps.places.PlaceResult | null;
+  stops?: Stop[];
+  onStopsChange?: (stops: Stop[]) => void;
+  onPickupSelect: (p: google.maps.places.PlaceResult | null) => void;
+  onDropoffSelect: (p: google.maps.places.PlaceResult | null) => void;
+  routeInfo: RouteInfo | null;
+  onRideCreated?: (rideId: string) => void;
+};
+function isoToDatetimeLocal(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
 }
 
-export default function RideRequestPanel({ onPickupSelect, onDropoffSelect, routeInfo }: RideRequestPanelProps) {
-    const [step, setStep] = React.useState('locations'); // 'locations', 'drivers', 'requesting'
-    const [selectedDriver, setSelectedDriver] = React.useState<typeof availableDrivers[0] | null>(null);
+export default function RideRequestPanel({
+  passengerId,
+  pickupPlace,
+  dropoffPlace,
+  stops,
+  onStopsChange,
+  onPickupSelect,
+  onDropoffSelect,
+  routeInfo,
+  onRideCreated,
+}: Props) {
+  const [serviceType, setServiceType] = React.useState<ServiceType>('ride');
+  const [extraStops, setExtraStops] = React.useState<Stop[]>([]);
+  const [scheduleAt, setScheduleAt] = React.useState('');
+  const [desiredRate, setDesiredRate] = React.useState('');
+  const [otherName, setOtherName] = React.useState('');
+  const [itemDesc, setItemDesc] = React.useState('');
+  const [itemNotes, setItemNotes] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
 
-    const handleFindDrivers = (e: React.FormEvent) => {
-        e.preventDefault();
-        setStep('drivers');
+  // 🔵 NAVZ AI
+  const [aiPrompt, setAiPrompt] = React.useState('');
+  const [aiLoading, setAiLoading] = React.useState(false);
+
+  const destinationWrap =
+    'rounded-md bg-[#d9f7e7] border border-emerald-200 px-3 py-2';
+
+  function placeDisplay(p: google.maps.places.PlaceResult | null) {
+    return p?.name || p?.formatted_address || '';
+  }
+
+  function allStops() {
+    return [pickupPlace, ...extraStops.map(s => s.place), dropoffPlace];
+  }
+
+  function addStop() {
+    if (extraStops.length >= 3) return;
+    setExtraStops(p => [...p, { id: crypto.randomUUID(), place: null }]);
+  }
+
+  function removeStop(id: string) {
+    setExtraStops(p => p.filter(s => s.id !== id));
+  }
+
+  function swapAt(listIndex: number) {
+    const list = allStops();
+    if (!list[listIndex] || !list[listIndex + 1]) return;
+
+    const swapped = [...list];
+    [swapped[listIndex], swapped[listIndex + 1]] = [
+      swapped[listIndex + 1],
+      swapped[listIndex],
+    ];
+
+    onPickupSelect(swapped[0] ?? null);
+    onDropoffSelect(swapped[swapped.length - 1] ?? null);
+    setExtraStops(
+      swapped.slice(1, -1).map(p => ({
+        id: crypto.randomUUID(),
+        place: p ?? null,
+      })),
+    );
+  }
+
+  useEffect(() => {
+    if (onStopsChange) {
+      onStopsChange(extraStops);
     }
+  }, [extraStops, onStopsChange]);
+
+  // 🔵 NAVZ AI HANDLER
+  async function handleAiAssist() {
+    if (!aiPrompt.trim()) return;
+  
+    setAiLoading(true);
+    
+    try {
+      const res = await fetch("/api/navz-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: aiPrompt }),
+      });
+  
+      const data = await res.json();
+      
+      if (!res.ok) {
+        console.error("AI Error:", data.error);
+        return;
+      }
+  // Handle Budget/Rate
+if (data.budget) {
+  setDesiredRate(String(data.budget));
+} 
+// ✅ Handle Date/Time
+if (data.datetime) {
+  setScheduleAt(isoToDatetimeLocal(data.datetime));
+}
+
+      // Update Pickup
+      if (data.pickup) {
+        const place = await resolvePlace(data.pickup);
+        if (place) onPickupSelect(place);
+      }
+      
+      // Update Dropoff
+      if (data.dropoff) {
+        const place = await resolvePlace(data.dropoff);
+        if (place) onDropoffSelect(place);
+      }
+      
+      // Handle Budget/Rate
+      if (data.budget) {
+        setDesiredRate(String(data.budget));
+      } 
+    } catch (error) {
+      console.error("Network Error:", error);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pickupPlace || !dropoffPlace) return;
+
+    setSubmitting(true);
+
+    const stopsPayload = allStops().map((p, i, arr) => ({
+      type:
+        i === 0
+          ? 'pickup'
+          : i === arr.length - 1
+          ? 'dropoff'
+          : 'stop',
+      text: p?.name || p?.formatted_address || '',
+    }));
+
+    const docRef = await addDoc(collection(db, 'rides'), {
+      passengerId,
+      createdAt: serverTimestamp(),
+      status: 'pending',
+      serviceType,
+      stops: stopsPayload,
+      scheduledAt: scheduleAt
+        ? Timestamp.fromDate(new Date(scheduleAt))
+        : null,
+      desiredRate: desiredRate ? Number(desiredRate) : null,
+      otherRiderName:
+        serviceType === 'ride_for_others' ? otherName : null,
+      itemDescription:
+        serviceType === 'item_pickup' ? itemDesc : null,
+      itemNotes:
+        serviceType === 'item_pickup' ? itemNotes : null,
+      routeInfo,
+    });
+
+    setSubmitting(false);
+    onRideCreated?.(docRef.id);
+  }
+
+  const serviceColor =
+    serviceType === 'ride'
+      ? 'bg-red-500 hover:bg-red-600'
+      : serviceType === 'ride_for_others'
+      ? 'bg-yellow-400 hover:bg-yellow-500 text-black'
+      : 'bg-green-500 hover:bg-green-600';
 
   return (
-    <Card className="w-full max-w-sm rounded-xl shadow-2xl">
-      <Tabs defaultValue="book">
-        <CardHeader>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="book">Book a Ride</TabsTrigger>
-            <TabsTrigger value="status">Ride Status</TabsTrigger>
-          </TabsList>
+    <Card className="w-full max-w-sm shadow-xl">
+      <form onSubmit={submit}>
+        <CardHeader className="space-y-1">
+          <div className="grid grid-cols-3 gap-2">
+            <Button type="button" onClick={() => setServiceType('ride')}>
+              <User className="mr-1 h-4 w-4" /> Ride
+            </Button>
+            <Button type="button" onClick={() => setServiceType('ride_for_others')}>
+              <Users className="mr-1 h-4 w-4" /> For other
+            </Button>
+            <Button type="button" onClick={() => setServiceType('item_pickup')}>
+              <Package className="mr-1 h-4 w-4" /> Item
+            </Button>
+          </div>
         </CardHeader>
-        <TabsContent value="book">
-          {step === 'locations' && (
-             <form onSubmit={handleFindDrivers}>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="pickup">Pickup Location</Label>
-                      <PlaceAutocompleteInput id="pickup" placeholder="Enter pickup location" onPlaceSelect={onPickupSelect} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dropoff">Dropoff Location</Label>
-                      <PlaceAutocompleteInput id="dropoff" placeholder="Enter dropoff location" onPlaceSelect={onDropoffSelect} />
-                    </div>
 
-                     {routeInfo && (
-                        <div className="rounded-lg border bg-muted/50 p-3 space-y-2">
-                            <h4 className="text-sm font-medium">Trip Estimate</h4>
-                            <div className="flex justify-around text-center">
-                                <div className="flex items-center gap-2">
-                                    <Clock className="size-4 text-muted-foreground" />
-                                    <div>
-                                        <p className="font-bold">{routeInfo.duration}</p>
-                                        <p className="text-xs text-muted-foreground">Time</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Milestone className="size-4 text-muted-foreground"/>
-                                    <div>
-                                        <p className="font-bold">{routeInfo.distance}</p>
-                                        <p className="text-xs text-muted-foreground">Distance</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Wallet className="size-4 text-muted-foreground"/>
-                                    <div>
-                                        <p className="font-bold">{calculateFare(routeInfo)}</p>
-                                        <p className="text-xs text-muted-foreground">Avg. Fare</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter>
-                    <Button className="w-full" size="lg" type="submit" disabled={!routeInfo}>Find Drivers</Button>
-                </CardFooter>
-            </form>
-          )}
+        <CardContent className="space-y-2">
 
-          {step === 'drivers' && (
-             <>
-                <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-medium text-center">Choose a driver:</h3>
-                        <ScrollArea className="h-72">
-                            <div className="space-y-3 pr-4">
-                            {availableDrivers.map((driver) => (
-                                <div 
-                                    key={driver.name} 
-                                    className={cn("flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50 transition-colors cursor-pointer", selectedDriver?.name === driver.name && "bg-accent/80 border-primary")}
-                                    onClick={() => setSelectedDriver(driver)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="size-10">
-                                            <AvatarImage src={getAvatar(driver.avatarId)?.imageUrl} alt={driver.name} />
-                                            <AvatarFallback>{driver.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold">{driver.name}</p>
-                                            <p className="text-sm text-muted-foreground">{driver.vehicle}</p>
-                                            <div className="flex items-center gap-1 text-xs">
-                                                <Star className="size-3 text-yellow-400 fill-yellow-400"/>
-                                                <span>{driver.rating}</span>
-                                                <span className="text-muted-foreground">({driver.eta})</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <p className="font-semibold text-lg">{driver.price}</p>
-                                        {driver.isFavorite && <Heart className="size-4 text-red-500 fill-red-500"/>}
-                                    </div>
-                                </div>
-                            ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex-col gap-2">
-                    <Button className="w-full" size="lg" disabled={!selectedDriver}>
-                        Request {selectedDriver ? selectedDriver.name.split(' ')[0] : 'This Driver'}
-                    </Button>
-                    <Button variant="link" className="w-full" onClick={() => setStep('locations')}>Back</Button>
-                </CardFooter>
-             </>
+          {/* 🔵 NAVZ AI BLOCK */}
+          <div className="space-y-1">
+            <Label className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              NAVZ AI
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Describe your ride in plain English…"
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleAiAssist}
+                disabled={aiLoading}
+              >
+                {aiLoading ? 'Thinking…' : 'Go'}
+              </Button>
+            </div>
+          </div>
+
+          {/* EVERYTHING BELOW IS UNCHANGED */}
+          {/* Pickup */}
+          <div className="space-y-1">
+            <Label>Pickup</Label>
+            <div className={destinationWrap}>
+              <PlaceAutocompleteInput
+                id="pickup"
+                placeholder="Enter pickup location"
+                value={placeDisplay(pickupPlace)}
+                onPlaceSelect={onPickupSelect}
+              />
+            </div>
+          </div>
+
+          {/* Stops */}
+          {extraStops.map((s, i) => (
+            <div key={s.id} className="space-y-1">
+              <Label>{`Stop ${i + 1}`}</Label>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="icon" variant="ghost" onClick={() => removeStop(s.id)}>
+                  <X className="h-4 w-4 text-red-500" />
+                </Button>
+                <div className="flex-1">
+                  <div className={destinationWrap}>
+                    <PlaceAutocompleteInput
+                      id={`stop-${i}`}
+                      placeholder={`Stop ${i + 1}`}
+                      value={placeDisplay(s.place)}
+                      onPlaceSelect={(p) =>
+                        setExtraStops(prev =>
+                          prev.map(x =>
+                            x.id === s.id ? { ...x, place: p } : x,
+                          ),
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Dropoff */}
+          <div className="space-y-1">
+            <Label>Dropoff</Label>
+            <div className={destinationWrap}>
+              <PlaceAutocompleteInput
+                id="dropoff"
+                placeholder="Enter dropoff location"
+                value={placeDisplay(dropoffPlace)}
+                onPlaceSelect={onDropoffSelect}
+              />
+            </div>
+          </div>
+
+          <Button type="button" variant="ghost" className="w-full" onClick={addStop}>
+            <Plus className="mr-2 h-4 w-4" /> Add stop
+          </Button>
+
+          <Input type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+          <Input placeholder="Desired rate (optional)" value={desiredRate} onChange={e => setDesiredRate(e.target.value)} />
+
+          {routeInfo && (
+            <div className="grid grid-cols-3 gap-2 text-center text-sm bg-muted p-3 rounded">
+              <div className="flex flex-col items-center">
+                <Clock className="h-4 w-4" />
+                {routeInfo.duration}
+              </div>
+              <div className="flex flex-col items-center">
+                <Milestone className="h-4 w-4" />
+                {routeInfo.distance}
+              </div>
+              <div className="flex flex-col items-center">
+                <Wallet className="h-4 w-4" />
+                Est.
+              </div>
+            </div>
           )}
-        </TabsContent>
-        <TabsContent value="status">
-            <CardContent className="space-y-4">
-                <div className="text-center">
-                    <p className="text-muted-foreground">On your way to</p>
-                    <p className="font-semibold text-lg">456 Park Ave, Anytown</p>
-                </div>
-                <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-                    <div className="text-center">
-                        <p className="font-bold text-lg text-foreground">12</p>
-                        <p>min</p>
-                    </div>
-                    <Separator orientation="vertical" className="h-8"/>
-                    <div className="text-center">
-                        <p className="font-bold text-lg text-foreground">€14.50</p>
-                        <p>fare</p>
-                    </div>
-                </div>
-                <Separator/>
-                <div className="flex items-center gap-4">
-                    <Avatar className="size-16">
-                        {driverAvatar && <AvatarImage src={driverAvatar.imageUrl} alt="Driver" />}
-                        <AvatarFallback>DR</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <p className="font-semibold text-lg">John D.</p>
-                        <p className="text-muted-foreground">Toyota Prius - ABC-123</p>
-                        <div className="flex items-center gap-1">
-                            <Star className="size-4 text-yellow-400 fill-yellow-400"/>
-                            <span className="font-medium">4.9</span>
-                        </div>
-                    </div>
-                </div>
-                 <div className="flex gap-2">
-                    <Button variant="outline" className="w-full">Contact Driver</Button>
-                    <Button variant="destructive" className="w-full">Cancel Ride</Button>
-                </div>
-            </CardContent>
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+
+        <CardFooter>
+          <Button type="submit" className={cn('w-full text-white', serviceColor)} disabled={submitting}>
+            {submitting ? 'Requesting…' : 'Request'}
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   );
 }

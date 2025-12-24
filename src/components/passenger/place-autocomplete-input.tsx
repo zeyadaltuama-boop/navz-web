@@ -8,26 +8,37 @@ import { MapPin } from 'lucide-react';
 type PlaceAutocompleteProps = {
   id: string;
   placeholder: string;
+  value?: string;
   onPlaceSelect: (place: google.maps.places.PlaceResult | null) => void;
 };
 
-export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect }: PlaceAutocompleteProps) {
+export function PlaceAutocompleteInput({
+  id,
+  placeholder,
+  value,
+  onPlaceSelect,
+}: PlaceAutocompleteProps) {
   const places = useMapsLibrary('places');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocomplete = useRef<google.maps.places.Autocomplete>();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const autocomplete = useRef<google.maps.places.Autocomplete | null>(null);
 
   useEffect(() => {
     if (!places || !inputRef.current) return;
 
     autocomplete.current = new places.Autocomplete(inputRef.current, {
-        fields: ['place_id', 'name', 'formatted_address', 'geometry'],
+      fields: ['place_id', 'name', 'formatted_address', 'geometry'],
     });
 
     autocomplete.current.addListener('place_changed', () => {
       onPlaceSelect(autocomplete.current?.getPlace() ?? null);
     });
-
   }, [places, onPlaceSelect]);
+
+  useEffect(() => {
+    if (inputRef.current && value !== undefined) {
+      inputRef.current.value = value;
+    }
+  }, [value]);
 
   return (
     <div className="relative">
@@ -37,7 +48,6 @@ export function PlaceAutocompleteInput({ id, placeholder, onPlaceSelect }: Place
         ref={inputRef}
         className="pl-9"
         placeholder={placeholder}
-        required
       />
     </div>
   );

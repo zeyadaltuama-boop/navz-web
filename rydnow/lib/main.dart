@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  runApp(const RydNowApp());
+  runApp(const NAVZApp());
 }
 
-class RydNowApp extends StatelessWidget {
-  const RydNowApp({super.key});
+class NAVZApp extends StatelessWidget {
+  const NAVZApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +49,7 @@ class HomeScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'RydNow',
+              'NAVZ',
               style: TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.bold,

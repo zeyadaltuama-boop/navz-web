@@ -29,7 +29,7 @@ class ShareAndSOS extends StatelessWidget {
   void _shareJourney() {
     SharePlus.instance.share(
       ShareParams(
-        text: 'Track my ride with RydNow',
+        text: 'Track my ride with NAVZ',
       ),
     );
   }
