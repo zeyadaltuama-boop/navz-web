@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   addDoc,
   collection,
@@ -29,6 +29,7 @@ import { PlaceAutocompleteInput } from '@/components/passenger/place-autocomplet
 import type { RouteInfo } from '@/app/passenger/page';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase/client';
+import { convertCurrency } from "@/lib/fx";
 
 async function resolvePlace(
   text: string
@@ -70,14 +71,61 @@ type Props = {
   onDropoffSelect: (p: google.maps.places.PlaceResult | null) => void;
   routeInfo: RouteInfo | null;
   onRideCreated?: (rideId: string) => void;
+  aiPrompt?: string | null; // ✅ NEW
 };
-function isoToDatetimeLocal(iso: string) {
-  const d = new Date(iso);
+function toDatetimeLocal(value: string) {
+  const d = new Date(value);
+
+  // guard against invalid date
+  if (isNaN(d.getTime())) return "";
+
   const pad = (n: number) => String(n).padStart(2, "0");
+
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
     d.getHours()
   )}:${pad(d.getMinutes())}`;
 }
+function parseAiDatetime(input: string): Date | null {
+  const now = new Date();
+  const text = input.toLowerCase();
+
+  // today / tomorrow
+  if (text.includes("today")) {
+    const d = new Date(now);
+    applyTime(d, text);
+    return d;
+  }
+
+  if (text.includes("tomorrow")) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    applyTime(d, text);
+    return d;
+  }
+
+  // ISO or timestamp
+  const d = new Date(input);
+  if (!isNaN(d.getTime())) return d;
+
+  return null;
+}
+
+function applyTime(d: Date, text: string) {
+  const timeMatch =
+    text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+
+  if (!timeMatch) return;
+
+  let hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2] || 0);
+  const period = timeMatch[3];
+
+  if (period === "pm" && hours < 12) hours += 12;
+  if (period === "am" && hours === 12) hours = 0;
+
+  d.setHours(hours, minutes, 0, 0);
+}
+
 
 export default function RideRequestPanel({
   passengerId,
@@ -89,6 +137,7 @@ export default function RideRequestPanel({
   onDropoffSelect,
   routeInfo,
   onRideCreated,
+  aiPrompt: incomingAiPrompt, // ✅ NEW
 }: Props) {
   const [serviceType, setServiceType] = React.useState<ServiceType>('ride');
   const [extraStops, setExtraStops] = React.useState<Stop[]>([]);
@@ -98,10 +147,45 @@ export default function RideRequestPanel({
   const [itemDesc, setItemDesc] = React.useState('');
   const [itemNotes, setItemNotes] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  
+  const [displayAmount, setDisplayAmount] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<"EUR" | "USD" | "GBP">("EUR");
+  function swapAt(listIndex: number) {
+    const list = allStops(); // [pickup, stop1, stop2, ..., dropoff]
+  
+    if (!list[listIndex] || !list[listIndex + 1]) return;
+  
+    const swapped = [...list];
+    [swapped[listIndex], swapped[listIndex + 1]] = [
+      swapped[listIndex + 1],
+      swapped[listIndex],
+    ];
+  
+    // apply back
+    onPickupSelect(swapped[0] ?? null);
+    onDropoffSelect(swapped[swapped.length - 1] ?? null);
+  
+    setExtraStops(
+      swapped.slice(1, -1).map(p => ({
+        id: crypto.randomUUID(),
+        place: p ?? null,
+      }))
+    );
+  }
+  
+  
 
-  // 🔵 NAVZ AI
-  const [aiPrompt, setAiPrompt] = React.useState('');
-  const [aiLoading, setAiLoading] = React.useState(false);
+ // 🔵 NAVZ AI
+const [aiPrompt, setAiPrompt] = React.useState("");
+
+// ✅ Prefill AI prompt from homepage
+useEffect(() => {
+  if (incomingAiPrompt && !aiPrompt) {
+    setAiPrompt(incomingAiPrompt);
+  }
+}, [incomingAiPrompt, aiPrompt]);
+
+const [aiLoading, setAiLoading] = React.useState(false);
 
   const destinationWrap =
     'rounded-md bg-[#d9f7e7] border border-emerald-200 px-3 py-2';
@@ -119,29 +203,72 @@ export default function RideRequestPanel({
     setExtraStops(p => [...p, { id: crypto.randomUUID(), place: null }]);
   }
 
-  function removeStop(id: string) {
-    setExtraStops(p => p.filter(s => s.id !== id));
+  function swapPickupWithFirstStop() {
+    if (!pickupPlace || extraStops.length === 0) return;
+  
+    const firstStop = extraStops[0];
+  
+    // move pickup → first stop
+    setExtraStops(prev => {
+      const next = [...prev];
+      next[0] = { ...firstStop, place: pickupPlace };
+      return next;
+    });
+  
+    // move first stop → pickup
+    onPickupSelect(firstStop.place);
   }
-
-  function swapAt(listIndex: number) {
-    const list = allStops();
-    if (!list[listIndex] || !list[listIndex + 1]) return;
-
-    const swapped = [...list];
-    [swapped[listIndex], swapped[listIndex + 1]] = [
-      swapped[listIndex + 1],
-      swapped[listIndex],
-    ];
-
-    onPickupSelect(swapped[0] ?? null);
-    onDropoffSelect(swapped[swapped.length - 1] ?? null);
-    setExtraStops(
-      swapped.slice(1, -1).map(p => ({
-        id: crypto.randomUUID(),
-        place: p ?? null,
-      })),
-    );
+  
+  function swapStopWithPrevious(index: number) {
+    // Stop 1 ⇅ Pickup
+    if (index === 0 && pickupPlace) {
+      const firstStop = extraStops[0];
+  
+      setExtraStops(prev => {
+        const next = [...prev];
+        next[0] = { ...firstStop, place: pickupPlace };
+        return next;
+      });
+  
+      onPickupSelect(firstStop.place);
+      return;
+    }
+  
+    // Stop N ⇅ Stop N-1
+    if (index > 0) {
+      setExtraStops(prev => {
+        const next = [...prev];
+        [next[index - 1], next[index]] = [
+          next[index],
+          next[index - 1],
+        ];
+        return next;
+      });
+    }
   }
+  
+  function swapDropoff() {
+    // No stops → Dropoff ⇅ Pickup
+    if (extraStops.length === 0 && pickupPlace && dropoffPlace) {
+      onPickupSelect(dropoffPlace);
+      onDropoffSelect(pickupPlace);
+      return;
+    }
+  
+    // Dropoff ⇅ Last Stop
+    if (extraStops.length > 0 && dropoffPlace) {
+      const lastIndex = extraStops.length - 1;
+      const lastStop = extraStops[lastIndex];
+  
+      setExtraStops(prev => {
+        const next = [...prev];
+        next[lastIndex] = { ...lastStop, place: dropoffPlace };
+        return next;
+      });
+  
+      onDropoffSelect(lastStop.place);
+    }
+  }  
 
   useEffect(() => {
     if (onStopsChange) {
@@ -150,8 +277,9 @@ export default function RideRequestPanel({
   }, [extraStops, onStopsChange]);
 
   // 🔵 NAVZ AI HANDLER
-  async function handleAiAssist() {
-    if (!aiPrompt.trim()) return;
+  async function handleAiAssist(promptOverride?: string) {
+    const prompt = (promptOverride ?? aiPrompt).trim();
+    if (!prompt) return;
   
     setAiLoading(true);
     
@@ -159,7 +287,7 @@ export default function RideRequestPanel({
       const res = await fetch("/api/navz-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: aiPrompt }),
+        body: JSON.stringify({ prompt }),
       });
   
       const data = await res.json();
@@ -168,13 +296,74 @@ export default function RideRequestPanel({
         console.error("AI Error:", data.error);
         return;
       }
-  // Handle Budget/Rate
+  // ✅ Handle Budget + Currency (AI + fallback)
 if (data.budget) {
-  setDesiredRate(String(data.budget));
-} 
-// ✅ Handle Date/Time
+  const amount = Number(data.budget);
+  setDesiredRate(String(amount));
+
+  let detectedCurrency = currency;
+
+  // 1️⃣ Prefer AI currency
+  if (data.currency && ["EUR", "USD", "GBP"].includes(data.currency)) {
+    detectedCurrency = data.currency;
+  }
+
+  // 2️⃣ Fallback: infer from raw prompt (symbols + words)
+const promptLower = aiPrompt.toLowerCase();
+
+if (!data.currency) {
+  if (
+    aiPrompt.includes("$") ||
+    promptLower.includes("usd") ||
+    promptLower.includes("dollar") ||
+    promptLower.includes("dollars")
+  ) {
+    detectedCurrency = "USD";
+  } else if (
+    aiPrompt.includes("€") ||
+    promptLower.includes("eur") ||
+    promptLower.includes("euro") ||
+    promptLower.includes("euros")
+  ) {
+    detectedCurrency = "EUR";
+  } else if (
+    promptLower.includes("gbp") ||
+    promptLower.includes("pound") ||
+    promptLower.includes("pounds")
+  ) {
+    detectedCurrency = "GBP";
+  }
+}
+
+  setCurrency(detectedCurrency);
+
+  // 3️⃣ Trigger conversion
+  const target =
+    detectedCurrency === "EUR" ? "USD" : "EUR";
+
+  const converted = await convertCurrency(
+    amount,
+    detectedCurrency,
+    target
+  );
+
+  setDisplayAmount(converted);
+}
+
+// ✅ Handle Date/Time (robust)
 if (data.datetime) {
-  setScheduleAt(isoToDatetimeLocal(data.datetime));
+  const d = parseAiDatetime(data.datetime);
+
+  if (d) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const formatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+      d.getDate()
+    )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    setScheduleAt(formatted);
+  } else {
+    console.warn("Could not parse AI datetime:", data.datetime);
+  }
 }
 
       // Update Pickup
@@ -189,10 +378,22 @@ if (data.datetime) {
         if (place) onDropoffSelect(place);
       }
       
-      // Handle Budget/Rate
-      if (data.budget) {
-        setDesiredRate(String(data.budget));
-      } 
+      if (Array.isArray(data.stops) && data.stops.length > 0) {
+        const resolvedStops = [];
+      
+        for (const stopText of data.stops.slice(0, 3)) {
+          const place = await resolvePlace(stopText);
+          if (place) {
+            resolvedStops.push({
+              id: crypto.randomUUID(),
+              place,
+            });
+          }
+        }
+      
+        setExtraStops(resolvedStops);
+      }
+      
     } catch (error) {
       console.error("Network Error:", error);
     } finally {
@@ -279,8 +480,8 @@ if (data.datetime) {
               />
               <Button
                 type="button"
-                variant="secondary"
-                onClick={handleAiAssist}
+                variant="default"
+                onClick={() => handleAiAssist()}
                 disabled={aiLoading}
               >
                 {aiLoading ? 'Thinking…' : 'Go'}
@@ -303,52 +504,134 @@ if (data.datetime) {
           </div>
 
           {/* Stops */}
-          {extraStops.map((s, i) => (
-            <div key={s.id} className="space-y-1">
-              <Label>{`Stop ${i + 1}`}</Label>
-              <div className="flex items-center gap-2">
-                <Button type="button" size="icon" variant="ghost" onClick={() => removeStop(s.id)}>
-                  <X className="h-4 w-4 text-red-500" />
-                </Button>
-                <div className="flex-1">
-                  <div className={destinationWrap}>
-                    <PlaceAutocompleteInput
-                      id={`stop-${i}`}
-                      placeholder={`Stop ${i + 1}`}
-                      value={placeDisplay(s.place)}
-                      onPlaceSelect={(p) =>
-                        setExtraStops(prev =>
-                          prev.map(x =>
-                            x.id === s.id ? { ...x, place: p } : x,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+{extraStops.map((s, i) => (
+  <div key={s.id} className="space-y-1">
+    {/* LABEL + SWAP */}
+    <div className="flex items-center justify-between">
+      <Label>{`Stop ${i + 1}`}</Label>
 
-          {/* Dropoff */}
-          <div className="space-y-1">
-            <Label>Dropoff</Label>
-            <div className={destinationWrap}>
-              <PlaceAutocompleteInput
-                id="dropoff"
-                placeholder="Enter dropoff location"
-                value={placeDisplay(dropoffPlace)}
-                onPlaceSelect={onDropoffSelect}
-              />
-            </div>
-          </div>
+      <button
+        type="button"
+        onClick={() => swapAt(i)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+      >
+        <ArrowUpDown className="h-4 w-4" />
+        Swap
+      </button>
+    </div>
+
+    {/* INPUT ROW */}
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={() => {
+          setExtraStops(prev => prev.filter(x => x.id !== s.id));
+        }}
+              >
+        <X className="h-4 w-4 text-red-500" />
+      </Button>
+
+      <div className="flex-1">
+        <div className={destinationWrap}>
+          <PlaceAutocompleteInput
+            id={`stop-${i}`}
+            placeholder={`Stop ${i + 1}`}
+            value={placeDisplay(s.place)}
+            onPlaceSelect={(p) =>
+              setExtraStops(prev =>
+                prev.map(x =>
+                  x.id === s.id ? { ...x, place: p } : x,
+                ),
+              )
+            }
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+))}
+
+         {/* Dropoff */}
+<div className="space-y-1">
+  <div className="flex items-center justify-between">
+    <Label>Dropoff</Label>
+
+    <button
+      type="button"
+      onClick={swapDropoff}
+      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+    >
+      <ArrowUpDown className="h-4 w-4" />
+      Swap
+    </button>
+  </div>
+
+  <div className={destinationWrap}>
+    <PlaceAutocompleteInput
+      id="dropoff"
+      placeholder="Enter dropoff location"
+      value={placeDisplay(dropoffPlace)}
+      onPlaceSelect={onDropoffSelect}
+    />
+  </div>
+</div>
+
 
           <Button type="button" variant="ghost" className="w-full" onClick={addStop}>
             <Plus className="mr-2 h-4 w-4" /> Add stop
           </Button>
 
           <Input type="datetime-local" value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
-          <Input placeholder="Desired rate (optional)" value={desiredRate} onChange={e => setDesiredRate(e.target.value)} />
+          <div className="flex gap-2">
+  <Input
+    type="number"
+    inputMode="decimal"
+    placeholder="Desired rate (optional)"
+    value={desiredRate}
+    onChange={async e => {
+      const value = e.target.value;
+      setDesiredRate(value);
+
+      if (!value) {
+        setDisplayAmount(null);
+        return;
+      }
+
+      const num = parseFloat(value);
+      if (Number.isFinite(num)) {
+        const converted = await convertCurrency(
+          num,
+          currency,
+          currency === "EUR" ? "USD" : "EUR"
+        );
+        setDisplayAmount(converted);
+      } else {
+        setDisplayAmount(null);
+      }
+    }}
+  />
+
+  <select
+    value={currency}
+    onChange={e => {
+      const newCurrency = e.target.value as "EUR" | "USD" | "GBP";
+      setCurrency(newCurrency);
+      setDisplayAmount(null); // reset conversion
+    }}
+    className="rounded border bg-background px-2 text-sm"
+  >
+    <option value="EUR">EUR €</option>
+    <option value="USD">USD $</option>
+    <option value="GBP">GBP £</option>
+  </select>
+</div>
+{displayAmount !== null && (
+  <p className="text-xs text-muted-foreground mt-1">
+    ≈ {displayAmount.toFixed(2)} {currency === "EUR" ? "USD" : "EUR"} (indicative)
+  </p>
+)}
 
           {routeInfo && (
             <div className="grid grid-cols-3 gap-2 text-center text-sm bg-muted p-3 rounded">
